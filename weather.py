@@ -1,6 +1,11 @@
+import sys
 import requests
-from weatherAPIkey import api_key
+from PyQt5.QtWidgets import (
+    QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QMessageBox
+)
+from PyQt5.QtCore import Qt
 from plyer import notification
+from weatherAPIkey import api_key
 
 
 def get_weather_data(city: str, api_key: str) -> dict:
@@ -26,23 +31,53 @@ def notify_user(message: str):
     )
 
 
-def main():
-    city = input("Enter your city: ")
-    try:
-        data = get_weather_data(city, api_key)
-        if data.get("cod") != 200:
-            print(f"Error: {data.get('message', 'Unable to fetch weather data')}")
+class WeatherApp(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Weather App")
+        self.setFixedSize(300, 200)
+
+        # Widgets
+        self.label = QLabel("Enter your city:")
+        self.city_input = QLineEdit()
+        self.city_input.setPlaceholderText("e.g., Kathmandu")
+        self.result_label = QLabel("")
+        self.result_label.setAlignment(Qt.AlignCenter)
+        self.get_weather_button = QPushButton("Get Weather")
+        self.get_weather_button.clicked.connect(self.fetch_weather)
+
+        # Layout
+        layout = QVBoxLayout()
+        layout.addWidget(self.label)
+        layout.addWidget(self.city_input)
+        layout.addWidget(self.get_weather_button)
+        layout.addWidget(self.result_label)
+        self.setLayout(layout)
+
+    def fetch_weather(self):
+        city = self.city_input.text().strip()
+        if not city:
+            QMessageBox.warning(self, "Input Error", "Please enter a city name.")
             return
 
-        temp, clouds = extract_weather_info(data)
-        weather_message = f"Temperature: {temp}°C\nSky: {clouds}"
+        try:
+            data = get_weather_data(city, api_key)
+            if data.get("cod") != 200:
+                error_msg = data.get("message", "Unable to fetch weather data")
+                QMessageBox.critical(self, "API Error", f"Error: {error_msg}")
+                return
 
-        print(weather_message)
-        notify_user(weather_message)
+            temp, clouds = extract_weather_info(data)
+            message = f"Temperature: {temp}°C\nSky: {clouds}"
+            self.result_label.setText(message)
+            notify_user(message)
 
-    except Exception as e:
-        print(f"An error occurred: {e}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"An error occurred: {e}")
 
 
 if __name__ == "__main__":
-    main()
+    app = QApplication(sys.argv)
+    window = WeatherApp()
+    window.show()
+    sys.exit(app.exec_())
